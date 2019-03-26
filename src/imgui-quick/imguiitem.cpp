@@ -100,6 +100,7 @@ static const char *vertSrcES2 =
         "}\n";
 
 static const char *fragSrcES2 =
+        "precision mediump float;\n"
         "uniform sampler2D tex;\n"
         "uniform lowp float opacity;\n"
         "varying highp vec2 uv;\n"
@@ -147,7 +148,13 @@ void ImGuiRenderer::render(const RenderState *state)
     }
 
     QOpenGLContext *ctx = QOpenGLContext::currentContext();
-    const bool isCoreProfile  = ctx->format().profile() == QSurfaceFormat::CoreProfile;
+
+#if defined(Q_OS_HTML5) or defined(Q_OS_WASM) or defined(__EMSCRIPTEN__)
+const bool isCoreProfile  = false;
+#else
+const bool isCoreProfile  = ctx->format().profile() == QSurfaceFormat::CoreProfile;
+#endif
+
     QOpenGLFunctions *f = ctx->functions();
 
     auto setupVertAttrs = [this, f] {
@@ -302,6 +309,24 @@ void ImGuiItem::initialize()
 {
     m_w = window();
 
+#if defined(Q_OS_HTML5) or defined(Q_OS_WASM) or defined(__EMSCRIPTEN__)
+    QSurfaceFormat fmt;
+    fmt.setVersion(2, 0);
+    fmt.setRenderableType(QSurfaceFormat::OpenGLES);
+    fmt.setMajorVersion(2);
+    fmt.setMinorVersion(0);
+    fmt.setRedBufferSize(5);
+    fmt.setGreenBufferSize(6);
+    fmt.setBlueBufferSize(5);
+    fmt.setAlphaBufferSize(0);
+    fmt.setDepthBufferSize(0);
+
+    QSurfaceFormat::setDefaultFormat(fmt);
+
+    QOpenGLContext *ctx = QOpenGLContext::currentContext();
+    ctx->setFormat(fmt);
+#endif
+
     m_imGuiContext = ImGui::CreateContext();
 
     ImGuiIO &io = ImGui::GetIO();
@@ -362,10 +387,14 @@ void ImGuiItem::cleanup()
 void ImGuiItem::updatePolish()
 {
     m_dpr = m_w->effectiveDevicePixelRatio();
+    m_dpr = m_dpr > 0.0 ? m_dpr : 1.0;
+
+    auto w = width();
+    auto h = height();
 
     ImGuiIO &io = ImGui::GetIO();
-    io.DisplaySize.x = width();
-    io.DisplaySize.y = height();
+    io.DisplaySize.x = w > 0.0f ? w : 1.0f;
+    io.DisplaySize.y = h > 0.0f ? h : 1.0f;
     io.DisplayFramebufferScale = ImVec2(m_dpr, m_dpr);
 
     updateInput();

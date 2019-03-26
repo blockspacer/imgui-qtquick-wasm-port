@@ -1,0 +1,4 @@
+*.o
+*.js_plugin_import.cpp
+*.js_qml_plugin_import.cpp
+Makefile
